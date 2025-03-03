@@ -11,7 +11,7 @@ app.get("/api/repo", async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: "Repository URL is required" });
 
-    const match = url.match(/github\\.com\\/([^\\/]+)\\/([^\\/]+)/);
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
     if (!match) return res.status(400).json({ error: "Invalid GitHub URL" });
 
     const [_, owner, repo] = match;
