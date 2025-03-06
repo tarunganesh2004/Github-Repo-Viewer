@@ -1,7 +1,10 @@
+// @ts-nocheck
 import React, { useState, useRef } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { darcula } from "react-syntax-highlighter/dist/esm/styles/prism"; // Dark theme
 
 const RepoViewer = () => {
     const [repoUrl, setRepoUrl] = useState("");
@@ -39,16 +42,13 @@ const RepoViewer = () => {
         const pdf = new jsPDF("p", "mm", "a4");
         const content = contentRef.current;
 
-        // Capture the content as a canvas
         const canvas = await html2canvas(content, { scale: 2 });
         const imgData = canvas.toDataURL("image/png");
 
-        // Calculate dimensions for multi-page PDF
         const imgWidth = 210; // A4 width in mm
-        const imgHeight = (canvas.height * imgWidth) / canvas.width; // Scale height to maintain aspect ratio
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
         let position = 0;
 
-        // Add pages dynamically
         while (position < imgHeight) {
             pdf.addImage(imgData, "PNG", 0, position * -1, imgWidth, imgHeight);
             position += 297; // A4 height in mm
@@ -75,7 +75,9 @@ const RepoViewer = () => {
                 {files.map((file) => (
                     <div key={file.path} className="file-item">
                         <h3>{file.name}</h3>
-                        <pre className="code-block">{fileContents[file.name] || "Loading..."}</pre>
+                        <SyntaxHighlighter language="python" style={darcula}>
+                            {fileContents[file.name] || "Loading..."}
+                        </SyntaxHighlighter>
                     </div>
                 ))}
             </div>
