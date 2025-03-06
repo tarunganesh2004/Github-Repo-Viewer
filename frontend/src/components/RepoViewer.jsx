@@ -4,13 +4,22 @@ import axios from "axios";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { darcula, atomDark, vs, solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism"; // Dark theme
+import { darcula, atomDark, vs, solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism"; // Themes
 
 const RepoViewer = () => {
     const [repoUrl, setRepoUrl] = useState("");
     const [files, setFiles] = useState([]);
     const [fileContents, setFileContents] = useState({});
+    const [theme, setTheme] = useState(darcula); // ✅ Default theme
     const contentRef = useRef(null);
+
+    // Available themes for selection
+    const themes = {
+        "Dark (Darcula)": darcula,
+        "Dark (Atom Dark)": atomDark,
+        "Light (VS Code)": vs,
+        "Light (Solarized)": solarizedlight,
+    };
 
     const fetchRepoFiles = async () => {
         if (!repoUrl) return alert("Enter a GitHub repository URL!");
@@ -69,13 +78,23 @@ const RepoViewer = () => {
             <button onClick={fetchRepoFiles}>Load Files</button>
             <button onClick={saveAsPDF} className="pdf-button">Save as PDF</button>
 
+            {/* ✅ Theme Selection Dropdown */}
+            <label>Select Theme: </label>
+            <select onChange={(e) => setTheme(themes[e.target.value])}>
+                {Object.keys(themes).map((key) => (
+                    <option key={key} value={key}>
+                        {key}
+                    </option>
+                ))}
+            </select>
+
             {/* ✅ Printable content wrapped inside a div */}
             <div ref={contentRef} className="file-list">
                 {files.length > 0 && <h2>Python Files:</h2>}
                 {files.map((file) => (
                     <div key={file.path} className="file-item">
                         <h3>{file.name}</h3>
-                        <SyntaxHighlighter language="python" style={darcula}>
+                        <SyntaxHighlighter language="python" style={theme}>
                             {fileContents[file.name] || "Loading..."}
                         </SyntaxHighlighter>
                     </div>
