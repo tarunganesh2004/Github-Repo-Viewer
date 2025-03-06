@@ -4,7 +4,7 @@ import axios from "axios";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { darcula } from "react-syntax-highlighter/dist/esm/styles/prism"; // Dark theme
+import { darcula, atomDark, vs, solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism"; // Dark theme
 
 const RepoViewer = () => {
     const [repoUrl, setRepoUrl] = useState("");
@@ -43,7 +43,7 @@ const RepoViewer = () => {
         const content = contentRef.current;
 
         const canvas = await html2canvas(content, { scale: 2 });
-        const imgData = canvas.toDataURL("image/png");
+        const imgData = canvas.toDataURL("image/jpeg");
 
         const imgWidth = 210; // A4 width in mm
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
