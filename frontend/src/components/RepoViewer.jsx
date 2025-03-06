@@ -30,18 +30,32 @@ const RepoViewer = () => {
         }
     };
 
-    const saveAsPDF = () => {
+    const saveAsPDF = async () => {
         if (!contentRef.current) {
             alert("Nothing to print!");
             return;
         }
 
-        html2canvas(contentRef.current, { scale: 2 }).then((canvas) => {
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            pdf.addImage(imgData, "PNG", 10, 10, 190, 0);
-            pdf.save("github_repo.pdf");
-        });
+        const pdf = new jsPDF("p", "mm", "a4");
+        const content = contentRef.current;
+
+        // Capture the content as a canvas
+        const canvas = await html2canvas(content, { scale: 2 });
+        const imgData = canvas.toDataURL("image/png");
+
+        // Calculate dimensions for multi-page PDF
+        const imgWidth = 210; // A4 width in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width; // Scale height to maintain aspect ratio
+        let position = 0;
+
+        // Add pages dynamically
+        while (position < imgHeight) {
+            pdf.addImage(imgData, "PNG", 0, position * -1, imgWidth, imgHeight);
+            position += 297; // A4 height in mm
+            if (position < imgHeight) pdf.addPage();
+        }
+
+        pdf.save("github_repo.pdf");
     };
 
     return (
