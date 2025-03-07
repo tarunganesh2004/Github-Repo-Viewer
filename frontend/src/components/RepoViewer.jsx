@@ -95,8 +95,8 @@ const RepoViewer = () => {
             <div ref={contentRef} className="file-list">
                 {files.length > 0 && <h2>Python Files:</h2>}
                 {files.map((file) => (
-                    <div key={file.path} className="file-item">
-                        <h3>{file.name}</h3>
+                    <div key={file.name} className="file-item">
+                        <h3>{file.name}</h3> {/* ✅ Now shows full path */}
                         <SyntaxHighlighter language="python" style={theme}>
                             {fileContents[file.name] || "Loading..."}
                         </SyntaxHighlighter>
