@@ -48,6 +48,9 @@ const RepoViewer = () => {
             return;
         }
 
+        const fileName = prompt("Enter a name for the PDF File: ")
+        if (!fileName) return;
+
         const pdf = new jsPDF("p", "mm", "a4");
         const content = contentRef.current;
 
@@ -64,7 +67,7 @@ const RepoViewer = () => {
             if (position < imgHeight) pdf.addPage();
         }
 
-        pdf.save("github_repo.pdf");
+        pdf.save(`${fileName}.pdf`);
     };
 
     return (
