@@ -92,7 +92,7 @@ function App() {
     const pageHeight = 297; // A4 height in mm
     const margin = 10; // Margin in mm
     const contentWidth = pageWidth - 2 * margin;
-    let position = margin; // Start position on the page
+    const usablePageHeight = pageHeight - 2 * margin; // Usable height per page
 
     const fileElements = contentRef.current.querySelectorAll('.selected-file');
 
@@ -107,19 +107,66 @@ function App() {
       }
       fileElement.style.display = 'block';
 
-      // Capture the file's content as an image
-      const canvas = await html2canvas(fileElement, { scale: 2 });
+      // Ensure the element is fully rendered by temporarily setting its height
+      const originalHeight = fileElement.style.height;
+      fileElement.style.height = 'auto';
+      fileElement.style.overflow = 'visible';
+
+      // Capture the full content of the file element
+      const canvas = await html2canvas(fileElement, {
+        scale: 2,
+        useCORS: true,
+        scrollY: 0, // Ensure we start from the top
+        height: fileElement.scrollHeight, // Capture the full height
+      });
       const imgData = canvas.toDataURL('image/jpeg');
       const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
-      // Check if the content fits on the current page
-      if (position + imgHeight + margin > pageHeight) {
-        pdf.addPage();
-        position = margin; // Reset position for the new page
+      // Restore the element's original styles
+      fileElement.style.height = originalHeight;
+      fileElement.style.overflow = 'auto';
+
+      // Split the content across multiple pages if necessary
+      let remainingHeight = imgHeight;
+      let positionInImage = 0;
+
+      while (remainingHeight > 0) {
+        const heightToRender = Math.min(remainingHeight, usablePageHeight);
+        const clipHeight = (heightToRender / imgHeight) * canvas.height;
+
+        // Create a temporary canvas to clip the image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = clipHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(
+          canvas,
+          0,
+          positionInImage * (canvas.height / imgHeight),
+          canvas.width,
+          clipHeight,
+          0,
+          0,
+          canvas.width,
+          clipHeight
+        );
+        const clippedImgData = tempCanvas.toDataURL('image/jpeg');
+
+        // Add the clipped image to the PDF
+        pdf.addImage(clippedImgData, 'PNG', margin, margin, contentWidth, heightToRender);
+
+        remainingHeight -= heightToRender;
+        positionInImage += heightToRender;
+
+        if (remainingHeight > 0) {
+          pdf.addPage(); // Add a new page for the remaining content
+        }
       }
 
-      pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
-      position += imgHeight + margin; // Update position for the next file
+      // Add a new page for the next file if there are more files
+      if (i < fileElements.length - 1) {
+        pdf.addPage();
+      }
 
       // Restore the display of all file elements
       for (let j = 0; j < fileElements.length; j++) {
@@ -140,7 +187,16 @@ function App() {
       'json': 'json',
       'html': 'html',
       'css': 'css',
-      'txt': 'plaintext'
+      'txt': 'plaintext',
+      'java': 'java',
+      'cpp': 'cpp',
+      'c': 'c',
+      'cs': 'csharp',
+      'xml': 'xml',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'sh': 'bash',
+      'sql': 'sql',
     };
     return languageMap[extension] || 'plaintext';
   };
@@ -244,6 +300,7 @@ function App() {
                       language={getLanguage(file.path)}
                       style={theme}
                       wrapLines={true}
+                      showLineNumbers={true}
                       customStyle={{ fontSize: '0.9rem', borderRadius: '5px' }}
                     >
                       {file.content || 'Loading...'}

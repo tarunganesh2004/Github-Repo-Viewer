@@ -229,6 +229,22 @@ pre {
   max-width: 1200px;
 }
 
+/* Style for line numbers */
+.line-number {
+  padding-right: 10px;
+  color: #888;
+  user-select: none;
+  display: inline-block;
+  text-align: right;
+  min-width: 30px; /* Ensure consistent spacing for line numbers */
+}
+
+/* Ensure line numbers are visible in SyntaxHighlighter */
+.prism-code .line-numbers-rows {
+  padding: 10px 0;
+  border-right: 1px solid #ccc;
+}
+
 /* Responsive Design */
 @media (max-width: 1280px) {
   .repo-content, .selected-file-content {
