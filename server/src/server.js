@@ -13,7 +13,8 @@ app.get('/', (req, res) => {
     res.send('GitHub Repo to PDF Backend');
 });
 
-app.post('/generate-pdf', async (req, res) => {
+// Endpoint to fetch repository contents
+app.post('/fetch-repo-contents', async (req, res) => {
     const { repoLink } = req.body;
 
     // Extract owner and repo from the GitHub link
@@ -28,6 +29,97 @@ app.post('/generate-pdf', async (req, res) => {
     if (!repo || repo.includes('.')) {
         return res.status(400).json({ error: 'The provided URL does not point to a repository. Please use a valid repo URL (e.g., https://github.com/user/repo).' });
     }
+
+    // List of known binary file extensions to skip
+    const binaryExtensions = ['.pyc', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.exe', '.bin', '.zip', '.tar', '.gz', '.pdf'];
+
+    // Files and directories to exclude
+    const excludedFiles = ['license', '.gitignore', '.gitattributes', '.gitmodules'];
+    const excludedDirs = ['venv', '.git', '__pycache__'];
+
+    // Function to check if content is likely text
+    function isLikelyText(content) {
+        const nullByteCount = (content.match(/\0/g) || []).length;
+        const nonAsciiCount = (content.match(/[^\x00-\x7F]/g) || []).length;
+        return nullByteCount === 0 && nonAsciiCount / content.length < 0.1;
+    }
+
+    // Function to recursively fetch repo contents
+    async function fetchContents(path = '') {
+        const contents = await fetchRepoContents(owner, repo, path);
+        const result = [];
+
+        for (const item of contents) {
+            if (item.type === 'dir') {
+                // Skip excluded directories
+                const dirName = item.name.toLowerCase();
+                if (excludedDirs.includes(dirName)) {
+                    console.log(`Skipping directory: ${item.path} (excluded directory)`);
+                    continue;
+                }
+
+                // Recursively fetch contents of the directory
+                const subContents = await fetchContents(item.path);
+                result.push({
+                    type: 'folder',
+                    path: item.path,
+                    contents: subContents
+                });
+            } else if (item.type === 'file') {
+                // Skip files with binary extensions, no download URL, or excluded files
+                const isBinaryExtension = binaryExtensions.some(ext => item.name.toLowerCase().endsWith(ext));
+                const isExcludedFile = excludedFiles.some(excluded => item.name.toLowerCase() === excluded);
+                if (isBinaryExtension || !item.download_url || isExcludedFile) {
+                    console.log(`Skipping file: ${item.name} (${isBinaryExtension ? 'binary extension' : isExcludedFile ? 'excluded file' : 'no download URL'})`);
+                    continue;
+                }
+
+                // Fetch file content
+                try {
+                    const fileResponse = await fetch(item.download_url);
+                    if (!fileResponse.ok) {
+                        throw new Error(`HTTP error ${fileResponse.status}`);
+                    }
+
+                    const contentType = fileResponse.headers.get('Content-Type') || '';
+                    if (!contentType.includes('text') && !contentType.includes('json') && !contentType.includes('xml')) {
+                        console.log(`Skipping file: ${item.name} (Content-Type: ${contentType} is not text)`);
+                        continue;
+                    }
+
+                    const content = await fileResponse.text();
+                    if (!isLikelyText(content)) {
+                        console.log(`Skipping file: ${item.name} (content appears to be binary)`);
+                        continue;
+                    }
+
+                    result.push({
+                        type: 'file',
+                        path: item.path,
+                        content: content
+                    });
+                } catch (fetchError) {
+                    console.error(`Failed to fetch file ${item.path}: ${fetchError.message}`);
+                    continue;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    try {
+        const repoContents = await fetchContents();
+        res.json({ owner, repo, contents: repoContents });
+    } catch (error) {
+        console.error('Error fetching repo contents:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint to generate PDF
+app.post('/generate-pdf', async (req, res) => {
+    const { owner, repo, contents } = req.body;
 
     // Initialize PDF document with margins
     const doc = new PDFDocument({ margin: 40 });
@@ -46,99 +138,36 @@ app.post('/generate-pdf', async (req, res) => {
     doc.fontSize(18).text(`Repository: ${owner}/${repo}`, { align: 'center' });
     doc.moveDown(2);
 
-    // List of known binary file extensions to skip
-    const binaryExtensions = ['.pyc', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.exe', '.bin', '.zip', '.tar', '.gz', '.pdf'];
+    // Function to recursively add contents to the PDF
+    function addContentsToPDF(contents, indentLevel = 0) {
+        for (const item of contents) {
+            if (doc.y + 20 > doc.page.height - doc.page.margins.bottom) {
+                doc.addPage();
+            }
 
-    // Function to check if content is likely text
-    function isLikelyText(content) {
-        // Check for null bytes or excessive non-ASCII characters
-        const nullByteCount = (content.match(/\0/g) || []).length;
-        const nonAsciiCount = (content.match(/[^\x00-\x7F]/g) || []).length;
-        return nullByteCount === 0 && nonAsciiCount / content.length < 0.1; // Less than 10% non-ASCII
-    }
+            if (item.type === 'folder') {
+                doc.fontSize(14).text(`${' '.repeat(indentLevel * 2)}Folder: ${item.path}`, { underline: true });
+                doc.moveDown(0.5);
+                addContentsToPDF(item.contents, indentLevel + 1);
+            } else if (item.type === 'file') {
+                doc.fontSize(12).text(`${' '.repeat(indentLevel * 2)}File: ${item.path}`, { underline: true });
+                doc.moveDown(0.5);
 
-    // Function to recursively fetch and add repo contents to the PDF
-    async function addRepoContentsToPDF(path = '') {
-        try {
-            const contents = await fetchRepoContents(owner, repo, path);
-
-            for (const item of contents) {
-                // Check if adding this item would exceed the page height
-                const currentY = doc.y;
-                const pageHeight = doc.page.height - doc.page.margins.bottom;
-
-                if (item.type === 'dir') {
-                    // Estimate space needed for folder name
-                    if (currentY + 20 > pageHeight) {
+                doc.fontSize(10);
+                const lines = item.content.split('\n');
+                for (const line of lines) {
+                    if (doc.y + 12 > doc.page.height - doc.page.margins.bottom) {
                         doc.addPage();
                     }
-
-                    // Add folder name to PDF
-                    doc.fontSize(14).text(`Folder: ${item.path}`, { underline: true });
-                    doc.moveDown(0.5);
-
-                    // Recursively process the folder
-                    await addRepoContentsToPDF(item.path);
-                } else if (item.type === 'file') {
-                    // Skip files with binary extensions or no download URL
-                    const isBinaryExtension = binaryExtensions.some(ext => item.name.toLowerCase().endsWith(ext));
-                    if (isBinaryExtension || !item.download_url) {
-                        console.log(`Skipping file: ${item.name} (binary extension or no download URL)`);
-                        continue;
-                    }
-
-                    // Fetch file content with error handling
-                    try {
-                        const fileResponse = await fetch(item.download_url);
-                        if (!fileResponse.ok) {
-                            throw new Error(`HTTP error ${fileResponse.status}`);
-                        }
-
-                        // Check the Content-Type header
-                        const contentType = fileResponse.headers.get('Content-Type') || '';
-                        if (!contentType.includes('text') && !contentType.includes('json') && !contentType.includes('xml')) {
-                            console.log(`Skipping file: ${item.name} (Content-Type: ${contentType} is not text)`);
-                            continue;
-                        }
-
-                        const content = await fileResponse.text();
-
-                        // Validate that the content is likely text
-                        if (!isLikelyText(content)) {
-                            console.log(`Skipping file: ${item.name} (content appears to be binary)`);
-                            continue;
-                        }
-
-                        // Estimate space needed for file content
-                        const lines = content.split('\n');
-                        const approxHeight = 20 + (lines.length * 12); // 20 for file name, 12 per line
-
-                        if (currentY + approxHeight > pageHeight) {
-                            doc.addPage();
-                        }
-
-                        // Add file name and content to PDF
-                        doc.fontSize(12).text(`File: ${item.path}`, { underline: true });
-                        doc.moveDown(0.5);
-
-                        doc.fontSize(10);
-                        for (const line of lines) {
-                            doc.text(line.substring(0, 180)); // Truncate long lines
-                        }
-                        doc.moveDown(1); // Space between files
-                    } catch (fetchError) {
-                        console.error(`Failed to fetch file ${item.path}: ${fetchError.message}`);
-                        continue; // Skip this file and proceed
-                    }
+                    doc.text(`${' '.repeat(indentLevel * 2)}${line.substring(0, 180)}`);
                 }
+                doc.moveDown(1);
             }
-        } catch (error) {
-            throw new Error(`Error processing repo contents: ${error.message}`);
         }
     }
 
     try {
-        await addRepoContentsToPDF();
+        addContentsToPDF(contents);
         doc.end();
     } catch (error) {
         console.error('Error generating PDF:', error.message);
