@@ -13,6 +13,7 @@
     "@octokit/core": "^6.1.5",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "pdfkit": "^0.17.0"
+    "pdfkit": "^0.17.0",
+    "server": "file:"
   }
 }
