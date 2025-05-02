@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState } from 'react';
+import './styles.css';
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
@@ -73,15 +74,13 @@ function App() {
       <div key={index} style={{ marginLeft: `${indentLevel * 20}px` }}>
         {item.type === 'folder' ? (
           <div>
-            <h3 className="text-lg font-semibold underline">Folder: {item.path}</h3>
+            <h3>Folder: {item.path}</h3>
             {renderContents(item.contents, indentLevel + 1)}
           </div>
         ) : (
           <div>
-            <h4 className="text-md font-medium underline">File: {item.path}</h4>
-            <pre className="bg-gray-100 p-2 rounded text-sm whitespace-pre-wrap">
-              {item.content}
-            </pre>
+            <h4>File: {item.path}</h4>
+            <pre>{item.content}</pre>
           </div>
         )}
       </div>
@@ -89,41 +88,34 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
-      <h1 className="text-2xl font-bold mb-4">GitHub Repository Viewer</h1>
-      <div className="flex items-center space-x-4 mb-4">
+    <div className="container">
+      <h1>GitHub Repository Viewer</h1>
+      <div className="input-container">
         <input
           type="text"
           value={repoUrl}
           onChange={(e) => setRepoUrl(e.target.value)}
           placeholder="Enter GitHub repo URL (e.g., https://github.com/user/repo)"
-          className="border border-gray-300 rounded px-4 py-2 w-96 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button
-          onClick={handleGetFiles}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
+        <button className="get-files" onClick={handleGetFiles}>
           Get Files
         </button>
         {repoData && (
-          <button
-            onClick={handleSaveAsPDF}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
+          <button className="save-pdf" onClick={handleSaveAsPDF}>
             Save as PDF
           </button>
         )}
       </div>
 
       {error && (
-        <div className="text-red-500 mb-4">
+        <div className="error">
           {error}
         </div>
       )}
 
       {repoData && (
-        <div className="w-full max-w-4xl bg-white p-4 rounded shadow">
-          <h2 className="text-xl font-semibold mb-2">
+        <div className="repo-content">
+          <h2>
             Repository: {repoData.owner}/{repoData.repo}
           </h2>
           {repoData.contents.length > 0 ? (

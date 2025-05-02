@@ -1,0 +1,175 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+input[type="text"] {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button.get-files {
+  background-color: #007bff;
+  color: white;
+}
+
+button.get-files:hover {
+  background-color: #0056b3;
+}
+
+button.save-pdf {
+  background-color: #28a745;
+  color: white;
+}
+
+button.save-pdf:hover {
+  background-color: #218838;
+}
+
+.error {
+  color: #dc3545;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
+
+.repo-content {
+  width: 100%;
+  max-width: 900px;
+  background-color: white;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 10px 0;
+  text-decoration: underline;
+  color: #444;
+}
+
+h4 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 10px 0;
+  text-decoration: underline;
+  color: #555;
+}
+
+pre {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+  }
+
+  h4 {
+    font-size: 1rem;
+  }
+
+  input[type="text"] {
+    max-width: 100%;
+  }
+
+  .input-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  button {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .repo-content {
+    padding: 15px;
+  }
+
+  pre {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+  }
+
+  pre {
+    font-size: 0.8rem;
+  }
+}
