@@ -1,16 +1,38 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import './styles.css';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { darcula, atomDark, vs, solarizedlight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [repoData, setRepoData] = useState(null);
   const [error, setError] = useState(null);
+  const [theme, setTheme] = useState(darcula);
+  const [openFolders, setOpenFolders] = useState({});
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const contentRef = useRef(null);
+
+  const themes = {
+    'Dark (Darcula)': darcula,
+    'Dark (Atom Dark)': atomDark,
+    'Light (VS Code)': vs,
+    'Light (Solarized)': solarizedlight,
+  };
 
   // Function to fetch repository contents
   const handleGetFiles = async () => {
     setError(null);
     setRepoData(null);
+    setSelectedFiles([]);
+    setOpenFolders({});
+
+    if (!repoUrl) {
+      setError('Please enter a GitHub repository URL.');
+      return;
+    }
 
     try {
       const response = await fetch('http://localhost:3000/fetch-repo-contents', {
@@ -32,55 +54,124 @@ function App() {
     }
   };
 
-  // Function to save displayed content as PDF
-  const handleSaveAsPDF = async () => {
-    if (!repoData) return;
-
-    try {
-      const response = await fetch('http://localhost:3000/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          owner: repoData.owner,
-          repo: repoData.repo,
-          contents: repoData.contents,
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${repoData.repo}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to generate PDF.');
-      }
-    } catch (err) {
-      setError('Error generating PDF. Please try again.');
-    }
+  // Function to toggle folder open/close state
+  const toggleFolder = (path) => {
+    setOpenFolders((prev) => ({
+      ...prev,
+      [path]: !prev[path],
+    }));
   };
 
-  // Function to render repository contents
-  const renderContents = (contents, indentLevel = 0) => {
+  // Function to handle file selection
+  const handleFileSelect = (file) => {
+    setSelectedFiles((prev) => {
+      if (prev.some((f) => f.path === file.path)) {
+        return prev.filter((f) => f.path !== file.path);
+      }
+      return [...prev, file];
+    });
+  };
+
+  // Function to clear selected files
+  const clearSelection = () => {
+    setSelectedFiles([]);
+  };
+
+  // Function to save displayed content as PDF
+  const handleSaveAsPDF = async () => {
+    if (!contentRef.current || selectedFiles.length === 0) {
+      setError('No files selected to print!');
+      return;
+    }
+
+    const fileName = prompt('Enter a name for the PDF File: ');
+    if (!fileName) return;
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const margin = 10; // Margin in mm
+    const contentWidth = pageWidth - 2 * margin;
+    let position = margin; // Start position on the page
+
+    const fileElements = contentRef.current.querySelectorAll('.selected-file');
+
+    for (let i = 0; i < fileElements.length; i++) {
+      const fileElement = fileElements[i];
+
+      // Temporarily hide all other file elements to capture only the current one
+      for (let j = 0; j < fileElements.length; j++) {
+        if (j !== i) {
+          fileElements[j].style.display = 'none';
+        }
+      }
+      fileElement.style.display = 'block';
+
+      // Capture the file's content as an image
+      const canvas = await html2canvas(fileElement, { scale: 2 });
+      const imgData = canvas.toDataURL('image/jpeg');
+      const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+      // Check if the content fits on the current page
+      if (position + imgHeight + margin > pageHeight) {
+        pdf.addPage();
+        position = margin; // Reset position for the new page
+      }
+
+      pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
+      position += imgHeight + margin; // Update position for the next file
+
+      // Restore the display of all file elements
+      for (let j = 0; j < fileElements.length; j++) {
+        fileElements[j].style.display = 'block';
+      }
+    }
+
+    pdf.save(`${fileName}.pdf`);
+  };
+
+  // Function to determine the language based on file extension
+  const getLanguage = (filePath) => {
+    const extension = filePath.split('.').pop().toLowerCase();
+    const languageMap = {
+      'py': 'python',
+      'md': 'markdown',
+      'js': 'javascript',
+      'json': 'json',
+      'html': 'html',
+      'css': 'css',
+      'txt': 'plaintext'
+    };
+    return languageMap[extension] || 'plaintext';
+  };
+
+  // Function to render repository structure
+  const renderStructure = (contents, indentLevel = 0) => {
     return contents.map((item, index) => (
-      <div key={index} style={{ marginLeft: `${indentLevel * 20}px` }}>
+      <div key={index}>
         {item.type === 'folder' ? (
           <div>
-            <h3>Folder: {item.path}</h3>
-            {renderContents(item.contents, indentLevel + 1)}
+            <div
+              className="folder-item"
+              onClick={() => toggleFolder(item.path)}
+              style={{ marginLeft: `${indentLevel * 20}px` }}
+            >
+              <span className={`arrow ${openFolders[item.path] ? 'open' : ''}`}>▶</span>
+              📁 {item.path.split('/').pop()}
+            </div>
+            {openFolders[item.path] && (
+              <div className="file-list">
+                {renderStructure(item.contents, indentLevel + 1)}
+              </div>
+            )}
           </div>
         ) : (
-          <div>
-            <h4>File: {item.path}</h4>
-            <pre>{item.content}</pre>
+          <div
+            className="file-item"
+            style={{ marginLeft: `${indentLevel * 20}px` }}
+            onClick={() => handleFileSelect(item)}
+          >
+            File: {item.path}
           </div>
         )}
       </div>
@@ -100,12 +191,30 @@ function App() {
         <button className="get-files" onClick={handleGetFiles}>
           Get Files
         </button>
-        {repoData && (
-          <button className="save-pdf" onClick={handleSaveAsPDF}>
-            Save as PDF
-          </button>
+        {selectedFiles.length > 0 && (
+          <>
+            <button className="save-pdf" onClick={handleSaveAsPDF}>
+              Save as PDF
+            </button>
+            <button className="clear-selection" onClick={clearSelection}>
+              Clear Selection
+            </button>
+          </>
         )}
       </div>
+
+      {repoData && (
+        <div className="theme-selector">
+          <label>Select Theme: </label>
+          <select onChange={(e) => setTheme(themes[e.target.value])}>
+            {Object.keys(themes).map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {error && (
         <div className="error">
@@ -118,11 +227,32 @@ function App() {
           <h2>
             Repository: {repoData.owner}/{repoData.repo}
           </h2>
-          {repoData.contents.length > 0 ? (
-            renderContents(repoData.contents)
-          ) : (
-            <p>No files found in the repository.</p>
-          )}
+          <div className="content-area">
+            <div className="repo-structure">
+              {repoData.contents.length > 0 ? (
+                renderStructure(repoData.contents)
+              ) : (
+                <p>No files found in the repository.</p>
+              )}
+            </div>
+            {selectedFiles.length > 0 && (
+              <div className="selected-file-content" ref={contentRef}>
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="selected-file">
+                    <h3>File: {file.path}</h3>
+                    <SyntaxHighlighter
+                      language={getLanguage(file.path)}
+                      style={theme}
+                      wrapLines={true}
+                      customStyle={{ fontSize: '0.9rem', borderRadius: '5px' }}
+                    >
+                      {file.content || 'Loading...'}
+                    </SyntaxHighlighter>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

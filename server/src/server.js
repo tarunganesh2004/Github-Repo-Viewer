@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const PDFDocument = require('pdfkit');
 const { fetchRepoContents } = require('./utils/github');
 
 const app = express();
@@ -113,64 +112,6 @@ app.post('/fetch-repo-contents', async (req, res) => {
         res.json({ owner, repo, contents: repoContents });
     } catch (error) {
         console.error('Error fetching repo contents:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Endpoint to generate PDF
-app.post('/generate-pdf', async (req, res) => {
-    const { owner, repo, contents } = req.body;
-
-    // Initialize PDF document with margins
-    const doc = new PDFDocument({ margin: 40 });
-    let buffers = [];
-
-    // Collect PDF data in buffers
-    doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => {
-        const pdfData = Buffer.concat(buffers);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${repo}.pdf`);
-        res.send(pdfData);
-    });
-
-    // Add a title to the PDF
-    doc.fontSize(18).text(`Repository: ${owner}/${repo}`, { align: 'center' });
-    doc.moveDown(2);
-
-    // Function to recursively add contents to the PDF
-    function addContentsToPDF(contents, indentLevel = 0) {
-        for (const item of contents) {
-            if (doc.y + 20 > doc.page.height - doc.page.margins.bottom) {
-                doc.addPage();
-            }
-
-            if (item.type === 'folder') {
-                doc.fontSize(14).text(`${' '.repeat(indentLevel * 2)}Folder: ${item.path}`, { underline: true });
-                doc.moveDown(0.5);
-                addContentsToPDF(item.contents, indentLevel + 1);
-            } else if (item.type === 'file') {
-                doc.fontSize(12).text(`${' '.repeat(indentLevel * 2)}File: ${item.path}`, { underline: true });
-                doc.moveDown(0.5);
-
-                doc.fontSize(10);
-                const lines = item.content.split('\n');
-                for (const line of lines) {
-                    if (doc.y + 12 > doc.page.height - doc.page.margins.bottom) {
-                        doc.addPage();
-                    }
-                    doc.text(`${' '.repeat(indentLevel * 2)}${line.substring(0, 180)}`);
-                }
-                doc.moveDown(1);
-            }
-        }
-    }
-
-    try {
-        addContentsToPDF(contents);
-        doc.end();
-    } catch (error) {
-        console.error('Error generating PDF:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

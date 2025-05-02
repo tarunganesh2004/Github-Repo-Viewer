@@ -71,6 +71,42 @@ button.save-pdf:hover {
   background-color: #218838;
 }
 
+button.clear-selection {
+  background-color: #dc3545;
+  color: white;
+}
+
+button.clear-selection:hover {
+  background-color: #c82333;
+}
+
+.theme-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.theme-selector label {
+  font-size: 1rem;
+  color: #333;
+}
+
+.theme-selector select {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.theme-selector select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
 .error {
   color: #dc3545;
   margin-bottom: 20px;
@@ -79,11 +115,12 @@ button.save-pdf:hover {
 
 .repo-content {
   width: 100%;
-  max-width: 900px;
+  max-width: 1200px;
   background-color: white;
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
 }
 
 h2 {
@@ -114,12 +151,101 @@ pre {
   padding: 10px;
   border-radius: 5px;
   font-size: 0.9rem;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
+  overflow-x: auto;
+  word-wrap: normal;
   color: #333;
 }
 
+.prism-code {
+  white-space: pre !important;
+  overflow-x: auto !important;
+  word-wrap: normal !important;
+}
+
+/* Styles for folder/file structure */
+.repo-structure {
+  width: 100%;
+  max-width: 300px;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.folder-item, .file-item {
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.folder-item {
+  font-weight: 600;
+  color: #444;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.file-item {
+  padding-left: 20px;
+  color: #555;
+}
+
+.file-item:hover, .folder-item:hover {
+  background-color: #e0e0e0;
+}
+
+.arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.arrow.open {
+  transform: rotate(90deg);
+}
+
+.file-list {
+  margin-top: 10px;
+}
+
+.selected-file-content {
+  width: 100%;
+  max-width: 900px;
+  background-color: white;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+}
+
+.selected-file {
+  margin-bottom: 20px;
+}
+
+.content-area {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+}
+
 /* Responsive Design */
+@media (max-width: 1280px) {
+  .repo-content, .selected-file-content {
+    max-width: 100%;
+    padding: 15px;
+  }
+
+  .content-area {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .repo-structure {
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   h1 {
     font-size: 1.5rem;
@@ -151,7 +277,17 @@ pre {
     max-width: 200px;
   }
 
-  .repo-content {
+  .theme-selector {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .theme-selector select {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .repo-content, .selected-file-content {
     padding: 15px;
   }
 
