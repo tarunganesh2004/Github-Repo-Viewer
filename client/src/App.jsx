@@ -13,6 +13,8 @@ function App() {
   const [theme, setTheme] = useState(darcula);
   const [openFolders, setOpenFolders] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // New state for loading
   const contentRef = useRef(null);
 
   const themes = {
@@ -28,9 +30,12 @@ function App() {
     setRepoData(null);
     setSelectedFiles([]);
     setOpenFolders({});
+    setSearchQuery('');
+    setIsLoading(true); // Start loading
 
     if (!repoUrl) {
       setError('Please enter a GitHub repository URL.');
+      setIsLoading(false);
       return;
     }
 
@@ -51,7 +56,28 @@ function App() {
       }
     } catch (err) {
       setError('Error connecting to the backend. Please ensure the server is running.');
+    } finally {
+      setIsLoading(false); // Stop loading
     }
+  };
+
+  // Function to select all files
+  const handleSelectAllFiles = () => {
+    if (!repoData) return;
+
+    const allFiles = [];
+    const collectFiles = (contents) => {
+      contents.forEach((item) => {
+        if (item.type === 'file') {
+          allFiles.push(item);
+        } else if (item.type === 'folder') {
+          collectFiles(item.contents);
+        }
+      });
+    };
+
+    collectFiles(repoData.contents);
+    setSelectedFiles(allFiles);
   };
 
   // Function to toggle folder open/close state
@@ -84,8 +110,12 @@ function App() {
       return;
     }
 
+    setIsLoading(true); // Start loading
     const fileName = prompt('Enter a name for the PDF File: ');
-    if (!fileName) return;
+    if (!fileName) {
+      setIsLoading(false);
+      return;
+    }
 
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = 210; // A4 width in mm
@@ -175,6 +205,7 @@ function App() {
     }
 
     pdf.save(`${fileName}.pdf`);
+    setIsLoading(false); // Stop loading
   };
 
   // Function to determine the language based on file extension
@@ -201,9 +232,75 @@ function App() {
     return languageMap[extension] || 'plaintext';
   };
 
-  // Function to render repository structure
+  // Function to get the icon for a file based on its extension
+  const getFileIcon = (filePath) => {
+    const extension = filePath.split('.').pop().toLowerCase();
+    const iconMap = {
+      'py': '🐍',
+      'java': '☕',
+      'js': '📜',
+      'json': '📋',
+      'html': '🌐',
+      'css': '🎨',
+      'txt': '📄',
+      'md': '📝',
+      'cpp': '💻',
+      'c': '💻',
+      'cs': '💻',
+      'xml': '📄',
+      'yaml': '📋',
+      'yml': '📋',
+      'sh': '🐚',
+      'sql': '🗃️',
+    };
+    return iconMap[extension] || '📄'; // Default icon for unknown extensions
+  };
+
+  // Function to check if a file or folder matches the search query
+  const matchesSearchQuery = (item, query) => {
+    if (!query) return true;
+    const lowerQuery = query.toLowerCase();
+    if (item.type === 'file') {
+      return item.path.toLowerCase().includes(lowerQuery);
+    }
+    // For folders, check if the folder name matches or if any children match
+    return (
+      item.path.toLowerCase().includes(lowerQuery) ||
+      (item.contents && item.contents.some((child) => matchesSearchQuery(child, query)))
+    );
+  };
+
+  // Function to highlight matching text in the file name
+  const highlightMatch = (text, query) => {
+    if (!query) return text;
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+    if (index === -1) return text;
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + query.length);
+    const after = text.substring(index + query.length);
+    return (
+      <>
+        {before}
+        <span className="highlight">{match}</span>
+        {after}
+      </>
+    );
+  };
+
+  // Function to render repository structure with search filtering
   const renderStructure = (contents, indentLevel = 0) => {
-    return contents.map((item, index) => (
+    // Filter contents based on search query
+    const filteredContents = contents.filter((item) =>
+      matchesSearchQuery(item, searchQuery)
+    );
+
+    if (filteredContents.length === 0) {
+      return <p>No files match your search.</p>;
+    }
+
+    return filteredContents.map((item, index) => (
       <div key={index}>
         {item.type === 'folder' ? (
           <div>
@@ -212,10 +309,12 @@ function App() {
               onClick={() => toggleFolder(item.path)}
               style={{ marginLeft: `${indentLevel * 20}px` }}
             >
-              <span className={`arrow ${openFolders[item.path] ? 'open' : ''}`}>▶</span>
-              📁 {item.path.split('/').pop()}
+              <span className={`arrow ${openFolders[item.path] ? 'open' : ''}`}>
+                ▶
+              </span>
+              📁 {highlightMatch(item.path.split('/').pop(), searchQuery)}
             </div>
-            {openFolders[item.path] && (
+            {(openFolders[item.path] || searchQuery) && (
               <div className="file-list">
                 {renderStructure(item.contents, indentLevel + 1)}
               </div>
@@ -227,7 +326,8 @@ function App() {
             style={{ marginLeft: `${indentLevel * 20}px` }}
             onClick={() => handleFileSelect(item)}
           >
-            File: {item.path}
+            <span className="file-icon">{getFileIcon(item.path)}</span>
+            File: {highlightMatch(item.path, searchQuery)}
           </div>
         )}
       </div>
@@ -244,13 +344,18 @@ function App() {
           onChange={(e) => setRepoUrl(e.target.value)}
           placeholder="Enter GitHub repo URL (e.g., https://github.com/user/repo)"
         />
-        <button className="get-files" onClick={handleGetFiles}>
-          Get Files
+        <button className="get-files" onClick={handleGetFiles} disabled={isLoading}>
+          {isLoading ? <span className="spinner"></span> : 'Get Files'}
         </button>
+        {repoData && (
+          <button className="select-all" onClick={handleSelectAllFiles}>
+            Select All Files
+          </button>
+        )}
         {selectedFiles.length > 0 && (
           <>
-            <button className="save-pdf" onClick={handleSaveAsPDF}>
-              Save as PDF
+            <button className="save-pdf" onClick={handleSaveAsPDF} disabled={isLoading}>
+              {isLoading ? <span className="spinner"></span> : 'Save as PDF'}
             </button>
             <button className="clear-selection" onClick={clearSelection}>
               Clear Selection
@@ -285,6 +390,13 @@ function App() {
           </h2>
           <div className="content-area">
             <div className="repo-structure">
+              <input
+                type="text"
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search files..."
+              />
               {repoData.contents.length > 0 ? (
                 renderStructure(repoData.contents)
               ) : (
